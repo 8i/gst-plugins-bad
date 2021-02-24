@@ -90,6 +90,9 @@ gst_cuda_buffer_pool_set_config (GstBufferPool * pool, GstStructure * config)
       priv->allocator = gst_object_ref (allocator);
     }
   } else {
+    if (!priv->context) {
+      priv->context = gst_cuda_context_new (0);
+    }
     allocator = priv->allocator = gst_cuda_allocator_new (priv->context);
     if (G_UNLIKELY (priv->allocator == NULL))
       goto no_allocator;
