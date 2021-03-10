@@ -28,7 +28,7 @@
 #include <gst/audio/audio.h>
 
 #if HAVE_LTC
-#include <ltc.h>
+#include <libltc/ltc.h>
 #endif
 
 #define GST_TYPE_TIME_CODE_STAMPER            (gst_timecodestamper_get_type())
