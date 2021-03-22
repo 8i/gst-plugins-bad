@@ -72,14 +72,14 @@ static GstStaticPadTemplate video_sink_template =
 GST_STATIC_PAD_TEMPLATE ("vsink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("video/x-raw")
+    GST_STATIC_CAPS ("video/x-raw(memory:CUDAMemory)")
     );
 
 static GstStaticPadTemplate video_src_template =
 GST_STATIC_PAD_TEMPLATE ("vsrc",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("video/x-raw")
+    GST_STATIC_CAPS ("video/x-raw(memory:CUDAMemory)")
     );
 
 #define parent_class gst_avwait_parent_class
