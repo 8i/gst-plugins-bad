@@ -522,9 +522,8 @@ gst_dash_sink_add_splitmuxsink (GstDashSink * sink, GstDashSinkStream * stream)
 
   g_object_set (stream->splitmuxsink, "location", segment_tpl_path,
       "max-size-time", ((GstClockTime) sink->target_duration * GST_SECOND),
-      "send-keyframe-requests", TRUE, "muxer", mux, "reset-muxer", FALSE,
-      "send-keyframe-requests", sink->send_keyframe_requests,
-      "start-index", start_index, NULL);
+      "send-keyframe-requests", sink->send_keyframe_requests, "muxer", mux,
+      "reset-muxer", FALSE, "start-index", start_index, NULL);
   g_free (segment_tpl);
   g_free (segment_tpl_path);
 
