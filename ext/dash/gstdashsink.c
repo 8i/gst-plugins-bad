@@ -480,9 +480,16 @@ gst_dash_sink_add_splitmuxsink (GstDashSink * sink, GstDashSinkStream * stream)
       gst_element_factory_make (dash_muxer_list[sink->muxer].element_name,
       NULL);
 
-  if (sink->muxer == GST_DASH_SINK_MUXER_MP4)
+  if (sink->muxer == GST_DASH_SINK_MUXER_MP4) {
+    gchar *segment_init_name;
+    gchar *segment_init_path;
+    segment_init_name =
+        g_strconcat (stream->representation_id, "_init.mp4", NULL);
+    segment_init_path =
+        g_build_path ("/", sink->mpd_root_path, segment_init_name, NULL);
     g_object_set (mux, "fragment-duration", sink->target_duration * GST_MSECOND,
-        NULL);
+        "faststart-file", segment_init_path, "streamable", TRUE, NULL);
+  }
 
   g_return_val_if_fail (mux != NULL, FALSE);
 
@@ -658,10 +665,13 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
         gchar *media_segment_template =
             g_strconcat (stream->representation_id, "_$Number$",
             ".", dash_muxer_list[sink->muxer].file_ext, NULL);
+        gchar *init_name =
+            g_strconcat (stream->representation_id, "_init.mp4", NULL);
         gst_mpd_client_set_segment_template (sink->mpd_client,
             sink->current_period_id, stream->adaptation_set_id,
             stream->representation_id, "media", media_segment_template,
-            "duration", sink->target_duration, NULL);
+            "duration", sink->target_duration, "initialization", init_name,
+            NULL);
         g_free (media_segment_template);
       }
     }
