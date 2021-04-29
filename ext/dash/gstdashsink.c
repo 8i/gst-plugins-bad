@@ -571,8 +571,7 @@ gst_dash_sink_get_stream_metadata (GstDashSink * sink,
       gst_structure_get_int (s, "width", &stream->info.video.width);
       gst_structure_get_int (s, "height", &stream->info.video.height);
       g_free (stream->codec);
-      stream->codec =
-          g_strdup (gst_mpd_helper_get_video_codec_from_mime (caps));
+      stream->codec = gst_mpd_helper_get_video_codec_from_mime (caps);
       break;
     }
     case DASH_SINK_STREAM_TYPE_AUDIO:
@@ -580,8 +579,7 @@ gst_dash_sink_get_stream_metadata (GstDashSink * sink,
       gst_structure_get_int (s, "channels", &stream->info.audio.channels);
       gst_structure_get_int (s, "rate", &stream->info.audio.rate);
       g_free (stream->codec);
-      stream->codec =
-          g_strdup (gst_mpd_helper_get_audio_codec_from_mime (caps));
+      stream->codec = gst_mpd_helper_get_audio_codec_from_mime (caps);
       break;
     }
     case DASH_SINK_STREAM_TYPE_SUBTITLE:
