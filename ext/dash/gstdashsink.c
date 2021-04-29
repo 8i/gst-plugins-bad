@@ -144,7 +144,7 @@ static const DashSinkMuxer dash_muxer_list[] = {
         GST_DASH_SINK_MUXER_MP4,
         "mp4mux",
         "video/mp4",
-      "mp4"},
+      "m4s"},
 };
 
 #define DEFAULT_SEGMENT_LIST_TPL "_%05d"
