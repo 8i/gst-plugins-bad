@@ -88,6 +88,7 @@
 #include <gst/pbutils/pbutils.h>
 #include <gst/video/video.h>
 #include <glib/gstdio.h>
+#include <gio/gio.h>
 #include <memory.h>
 
 
@@ -151,6 +152,7 @@ static const DashSinkMuxer dash_muxer_list[] = {
 #define DEFAULT_MPD_FILENAME "dash.mpd"
 #define DEFAULT_MPD_ROOT_PATH NULL
 #define DEFAULT_TARGET_DURATION 15
+#define DEFAULT_MAX_FILES 10
 #define DEFAULT_SEND_KEYFRAME_REQUESTS TRUE
 #define DEFAULT_MPD_NAMESPACE "urn:mpeg:dash:schema:mpd:2011"
 #define DEFAULT_MPD_PROFILES "urn:mpeg:dash:profile:isoff-main:2011"
@@ -230,6 +232,7 @@ typedef struct _GstDashSinkStream
   gint bitrate;
   gchar *codec;
   GstClockTime current_running_time_start;
+  GQueue old_segment_locations;
   GstDashSinkStreamInfo info;
 } GstDashSinkStream;
 
@@ -256,6 +259,7 @@ struct _GstDashSink
   guint64 minimum_update_period;
   guint64 min_buffer_time;
   gint64 period_duration;
+  guint max_files;
 };
 
 static GstStaticPadTemplate video_sink_template =
@@ -326,6 +330,9 @@ gst_dash_sink_stream_dispose (gpointer s)
   g_free (stream->representation_id);
   g_free (stream->mimetype);
   g_free (stream->codec);
+
+  g_queue_foreach (&stream->old_segment_locations, (GFunc) g_free, NULL);
+  g_queue_clear (&stream->old_segment_locations);
 
   g_free (stream);
 }
@@ -398,6 +405,11 @@ gst_dash_sink_class_init (GstDashSinkClass * klass)
       g_param_spec_string ("mpd-root-path", "MPD Root Path",
           "Path where the MPD and its fragents will be written",
           DEFAULT_MPD_ROOT_PATH, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (gobject_class, PROP_MAX_FILES,
+      g_param_spec_uint ("max-files", "max-files",
+          "Max files.", 0,
+          G_MAXUINT, DEFAULT_MAX_FILES,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (gobject_class, PROP_MPD_BASEURL,
       g_param_spec_string ("mpd-baseurl", "MPD BaseURL",
           "BaseURL to set in the MPD", DEFAULT_MPD_ROOT_PATH,
@@ -723,7 +735,6 @@ gst_dash_sink_handle_message (GstBin * bin, GstMessage * message)
       if (stream) {
         if (gst_structure_has_name (s, "splitmuxsink-fragment-opened")) {
           gst_dash_sink_get_stream_metadata (sink, stream);
-          g_free (stream->current_segment_location);
           stream->current_segment_location =
               g_strdup (gst_structure_get_string (s, "location"));
           gst_structure_get_clock_time (s, "running-time",
@@ -736,6 +747,34 @@ gst_dash_sink_handle_message (GstBin * bin, GstMessage * message)
           if (sink->running_time < running_time)
             sink->running_time = running_time;
           gst_dash_sink_write_mpd_file (sink, stream);
+
+          g_queue_push_tail (&stream->old_segment_locations,
+              g_strdup (stream->current_segment_location));
+
+          if (sink->max_files > 0) {
+            while (g_queue_get_length (&stream->old_segment_locations) >
+                sink->max_files) {
+              gchar *old_location =
+                  g_queue_pop_head (&stream->old_segment_locations);
+
+              GFile *file = g_file_new_for_path (old_location);
+              GError *err = NULL;
+
+              if (!g_file_delete (file, NULL, &err)) {
+                GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE,
+                    (("Failed to delete segment file '%s': %s."),
+                        old_location, err->message), (NULL));
+                g_clear_error (&err);
+              }
+
+              g_object_unref (file);
+
+              g_free (old_location);
+            }
+          }
+
+          g_free (stream->current_segment_location);
+          stream->current_segment_location = NULL;
         }
       }
       break;
@@ -792,6 +831,7 @@ gst_dash_sink_request_new_pad (GstElement * element, GstPadTemplate * templ,
   stream->representation_id = g_strdup (pad_name);
   stream->mimetype = g_strdup (dash_muxer_list[sink->muxer].mimetype);
 
+  g_queue_init (&stream->old_segment_locations);
 
   if (!gst_dash_sink_add_splitmuxsink (sink, stream)) {
     GST_ERROR_OBJECT (sink,
@@ -930,6 +970,9 @@ gst_dash_sink_set_property (GObject * object, guint prop_id,
     case PROP_MPD_PERIOD_DURATION:
       sink->period_duration = g_value_get_uint64 (value);
       break;
+    case PROP_MAX_FILES:
+      sink->max_files = g_value_get_uint (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -975,6 +1018,9 @@ gst_dash_sink_get_property (GObject * object, guint prop_id,
       break;
     case PROP_MPD_PERIOD_DURATION:
       g_value_set_uint64 (value, sink->period_duration);
+      break;
+    case PROP_MAX_FILES:
+      g_value_set_uint (value, sink->max_files);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
