@@ -168,6 +168,7 @@ enum
   ADAPTATION_SET_ID_VIDEO = 1,
   ADAPTATION_SET_ID_AUDIO,
   ADAPTATION_SET_ID_SUBTITLE,
+  ADAPTATION_SET_ID_META,
 };
 
 enum
@@ -192,6 +193,7 @@ typedef enum
   DASH_SINK_STREAM_TYPE_VIDEO = 0,
   DASH_SINK_STREAM_TYPE_AUDIO,
   DASH_SINK_STREAM_TYPE_SUBTITLE,
+  DASH_SINK_STREAM_TYPE_META,
   DASH_SINK_STREAM_TYPE_UNKNOWN,
 } GstDashSinkStreamType;
 
@@ -276,6 +278,11 @@ GST_STATIC_PAD_TEMPLATE ("audio_%u",
     GST_STATIC_CAPS_ANY);
 static GstStaticPadTemplate subtitle_sink_template =
 GST_STATIC_PAD_TEMPLATE ("subtitle_%u",
+    GST_PAD_SINK,
+    GST_PAD_REQUEST,
+    GST_STATIC_CAPS_ANY);
+static GstStaticPadTemplate meta_sink_template =
+GST_STATIC_PAD_TEMPLATE ("meta_%u",
     GST_PAD_SINK,
     GST_PAD_REQUEST,
     GST_STATIC_CAPS_ANY);
@@ -379,6 +386,8 @@ gst_dash_sink_class_init (GstDashSinkClass * klass)
       &audio_sink_template);
   gst_element_class_add_static_pad_template (element_class,
       &subtitle_sink_template);
+  gst_element_class_add_static_pad_template (element_class,
+      &meta_sink_template);
 
   gst_element_class_set_static_metadata (element_class,
       "DASH Sink", "Sink",
@@ -826,6 +835,9 @@ gst_dash_sink_request_new_pad (GstElement * element, GstPadTemplate * templ,
   } else if (g_str_has_prefix (templ->name_template, "subtitle")) {
     stream->type = DASH_SINK_STREAM_TYPE_SUBTITLE;
     stream->adaptation_set_id = ADAPTATION_SET_ID_SUBTITLE;
+  } else if (g_str_has_prefix (templ->name_template, "meta")) {
+    stream->type = DASH_SINK_STREAM_TYPE_META;
+    stream->adaptation_set_id = ADAPTATION_SET_ID_META;
   }
 
   stream->representation_id = g_strdup (pad_name);
