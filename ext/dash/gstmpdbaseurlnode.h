@@ -35,6 +35,7 @@ struct _GstMPDBaseURLNode
   gchar *baseURL;
   gchar *serviceLocation;
   gchar *byteRange;
+  guint64 availabilityTimeOffset;
   /* TODO add missing fields such as weight etc.*/
 };
 

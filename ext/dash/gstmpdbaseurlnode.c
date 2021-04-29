@@ -29,6 +29,7 @@ enum
   PROP_MPD_BASEURL_URL,
   PROP_MPD_BASEURL_SERVICE_LOCATION,
   PROP_MPD_BASEURL_BYTE_RANGE,
+  PROP_MPD_BASEURL_AVAILABILITY_TIME_OFFSET,
 };
 
 /* GObject VMethods */
@@ -51,6 +52,9 @@ gst_mpd_baseurl_node_set_property (GObject * object, guint prop_id,
       g_free (self->byteRange);
       self->byteRange = g_value_dup_string (value);
       break;
+    case PROP_MPD_BASEURL_AVAILABILITY_TIME_OFFSET:
+      self->availabilityTimeOffset = g_value_get_uint64 (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -71,6 +75,9 @@ gst_mpd_baseurl_node_get_property (GObject * object, guint prop_id,
       break;
     case PROP_MPD_BASEURL_BYTE_RANGE:
       g_value_set_string (value, self->byteRange);
+      break;
+    case PROP_MPD_BASEURL_AVAILABILITY_TIME_OFFSET:
+      g_value_set_uint64 (value, self->availabilityTimeOffset);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -111,6 +118,10 @@ gst_mpd_baseurl_get_xml_node (GstMPDNode * node)
   if (self->baseURL)
     gst_xml_helper_set_content (baseurl_xml_node, self->baseURL);
 
+  if (self->availabilityTimeOffset)
+    gst_xml_helper_set_prop_double (baseurl_xml_node,
+        "availabilityTimeOffset", self->availabilityTimeOffset);
+
   return baseurl_xml_node;
 }
 
@@ -141,7 +152,11 @@ gst_mpd_baseurl_node_class_init (GstMPDBaseURLNodeClass * klass)
   g_object_class_install_property (object_class, PROP_MPD_BASEURL_BYTE_RANGE,
       g_param_spec_string ("byte-range", "byte range", "byte range", NULL,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
+  g_object_class_install_property (object_class,
+      PROP_MPD_BASEURL_AVAILABILITY_TIME_OFFSET,
+      g_param_spec_uint64 ("availability-time-offset",
+          "availability time offset", "availability time offset", 0,
+          G_MAXUINT64, 0, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 static void
@@ -150,6 +165,7 @@ gst_mpd_baseurl_node_init (GstMPDBaseURLNode * self)
   self->baseURL = NULL;
   self->serviceLocation = NULL;
   self->byteRange = NULL;
+  self->availabilityTimeOffset = 0;
 }
 
 GstMPDBaseURLNode *
