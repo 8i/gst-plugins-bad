@@ -160,6 +160,7 @@ static const DashSinkMuxer dash_muxer_list[] = {
 #define DEFAULT_MPD_USE_SEGMENT_LIST FALSE
 #define DEFAULT_MPD_MIN_BUFFER_TIME 2000
 #define DEFAULT_MPD_PERIOD_DURATION GST_CLOCK_TIME_NONE
+#define DEFAULT_TEMP_EXTENSION ".tmp"
 
 #define DEFAULT_DASH_SINK_MUXER GST_DASH_SINK_MUXER_TS
 
@@ -503,11 +504,13 @@ gst_dash_sink_add_splitmuxsink (GstDashSink * sink, GstDashSinkStream * stream)
   if (sink->use_segment_list)
     segment_tpl =
         g_strconcat (stream->representation_id, DEFAULT_SEGMENT_LIST_TPL,
-        ".", dash_muxer_list[sink->muxer].file_ext, NULL);
+        ".", dash_muxer_list[sink->muxer].file_ext, DEFAULT_TEMP_EXTENSION,
+        NULL);
   else {
     segment_tpl =
         g_strconcat (stream->representation_id, DEFAULT_SEGMENT_TEMPLATE_TPL,
-        ".", dash_muxer_list[sink->muxer].file_ext, NULL);
+        ".", dash_muxer_list[sink->muxer].file_ext, DEFAULT_TEMP_EXTENSION,
+        NULL);
     start_index = 1;
   }
   if (sink->mpd_root_path)
@@ -758,11 +761,23 @@ gst_dash_sink_handle_message (GstBin * bin, GstMessage * message)
               &stream->current_running_time_start);
         } else if (gst_structure_has_name (s, "splitmuxsink-fragment-closed")) {
           GstClockTime running_time;
+          gchar *temp_path, *end = NULL;
           g_assert (strcmp (stream->current_segment_location,
                   gst_structure_get_string (s, "location")) == 0);
           gst_structure_get_clock_time (s, "running-time", &running_time);
           if (sink->running_time < running_time)
             sink->running_time = running_time;
+
+          // Rename the temporary file that we just finished writing
+          temp_path = g_strdup (stream->current_segment_location);
+          end = g_strrstr (stream->current_segment_location,
+              DEFAULT_TEMP_EXTENSION);
+          if (end) {
+            *end = 0;
+            g_rename (temp_path, stream->current_segment_location);
+          };
+          g_free (temp_path);
+
           gst_dash_sink_write_mpd_file (sink, stream);
 
           g_queue_push_tail (&stream->old_segment_locations,
