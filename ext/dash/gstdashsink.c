@@ -138,12 +138,12 @@ static const DashSinkMuxer dash_muxer_list[] = {
   {
         GST_DASH_SINK_MUXER_TS,
         "mpegtsmux",
-        "video/mp2t",
+        "%s/mp2t",
       "ts"},
   {
         GST_DASH_SINK_MUXER_MP4,
         "mp4mux",
-        "video/mp4",
+        "%s/mp4",
       "m4s"},
 };
 
@@ -234,6 +234,7 @@ typedef struct _GstDashSinkStream
   gchar *mimetype;
   gint bitrate;
   gchar *codec;
+  gchar *content_type;
   GstClockTime current_running_time_start;
   GQueue old_segment_locations;
   GstDashSinkStreamInfo info;
@@ -575,6 +576,8 @@ gst_dash_sink_get_stream_metadata (GstDashSink * sink,
       gst_structure_get_int (s, "height", &stream->info.video.height);
       g_free (stream->codec);
       stream->codec = gst_mpd_helper_get_video_codec_from_mime (caps);
+      g_free (stream->content_type);
+      stream->content_type = g_strdup ("video");
       break;
     }
     case DASH_SINK_STREAM_TYPE_AUDIO:
@@ -583,7 +586,19 @@ gst_dash_sink_get_stream_metadata (GstDashSink * sink,
       gst_structure_get_int (s, "rate", &stream->info.audio.rate);
       g_free (stream->codec);
       stream->codec = gst_mpd_helper_get_audio_codec_from_mime (caps);
+      g_free (stream->content_type);
+      stream->content_type = g_strdup ("audio");
       break;
+    }
+    case DASH_SINK_STREAM_TYPE_META:
+    {
+      g_free (stream->mimetype);
+      stream->mimetype = g_strdup (gst_structure_get_name (s));
+      g_free (stream->codec);
+      stream->codec = g_strdup (gst_structure_get_string (s, "codec"));
+      g_free (stream->content_type);
+      stream->content_type =
+          g_strdup (gst_structure_get_string (s, "content-type"));
     }
     case DASH_SINK_STREAM_TYPE_SUBTITLE:
     {
@@ -643,7 +658,7 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
       if (stream->type == DASH_SINK_STREAM_TYPE_VIDEO) {
         gst_mpd_client_set_adaptation_set_node (sink->mpd_client,
             sink->current_period_id, stream->adaptation_set_id, "content-type",
-            "video", NULL);
+            stream->content_type, NULL);
         gst_mpd_client_set_representation_node (sink->mpd_client,
             sink->current_period_id, stream->adaptation_set_id,
             stream->representation_id, "width", stream->info.video.width,
@@ -651,11 +666,13 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
       } else if (stream->type == DASH_SINK_STREAM_TYPE_AUDIO) {
         gst_mpd_client_set_adaptation_set_node (sink->mpd_client,
             sink->current_period_id, stream->adaptation_set_id, "content-type",
-            "audio", NULL);
+            stream->content_type, NULL);
         gst_mpd_client_set_representation_node (sink->mpd_client,
             sink->current_period_id, stream->adaptation_set_id,
             stream->representation_id, "audio-sampling-rate",
             stream->info.audio.rate, NULL);
+      } else if (stream->type == DASH_SINK_STREAM_TYPE_META) {
+        gst_mpd_client_set_adaptation_set_node (sink->mpd_client, sink->current_period_id, stream->adaptation_set_id, "content-type", stream->content_type, NULL);      // TODO make this more generic?
       }
       if (sink->use_segment_list) {
         /* Add a default segment list */
@@ -851,20 +868,30 @@ gst_dash_sink_request_new_pad (GstElement * element, GstPadTemplate * templ,
   if (g_str_has_prefix (templ->name_template, "video")) {
     stream->type = DASH_SINK_STREAM_TYPE_VIDEO;
     stream->adaptation_set_id = ADAPTATION_SET_ID_VIDEO;
+    stream->mimetype =
+        g_strdup_printf (dash_muxer_list[sink->muxer].mimetype, "video");
     split_pad_name = "video";
   } else if (g_str_has_prefix (templ->name_template, "audio")) {
     stream->type = DASH_SINK_STREAM_TYPE_AUDIO;
     stream->adaptation_set_id = ADAPTATION_SET_ID_AUDIO;
+    stream->mimetype =
+        g_strdup_printf (dash_muxer_list[sink->muxer].mimetype, "audio");
   } else if (g_str_has_prefix (templ->name_template, "subtitle")) {
     stream->type = DASH_SINK_STREAM_TYPE_SUBTITLE;
     stream->adaptation_set_id = ADAPTATION_SET_ID_SUBTITLE;
+    stream->mimetype =
+        g_strdup_printf (dash_muxer_list[sink->muxer].mimetype, "video");
   } else if (g_str_has_prefix (templ->name_template, "meta")) {
+    GstStructure *caps_struct = NULL;
     stream->type = DASH_SINK_STREAM_TYPE_META;
     stream->adaptation_set_id = ADAPTATION_SET_ID_META;
+    if (caps) {
+      caps_struct = gst_caps_get_structure (caps, 0);
+      stream->mimetype = g_strdup (gst_structure_get_name (caps_struct));
+    }
   }
 
   stream->representation_id = g_strdup (pad_name);
-  stream->mimetype = g_strdup (dash_muxer_list[sink->muxer].mimetype);
 
   g_queue_init (&stream->old_segment_locations);
 
