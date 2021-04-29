@@ -626,7 +626,7 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
       GstDateTime *now = gst_date_time_new_now_utc ();
       gst_mpd_client_set_root_node (sink->mpd_client,
           "type", GST_MPD_FILE_TYPE_DYNAMIC,
-          "availability-start-time", now, "publish-time", now, NULL);
+          "availability-start-time", now, NULL);
       gst_date_time_unref (now);
     }
     if (sink->minimum_update_period)
