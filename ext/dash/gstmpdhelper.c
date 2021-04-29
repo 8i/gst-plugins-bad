@@ -78,12 +78,12 @@ gst_mpd_helper_get_SAP_type (xmlNode * a_node,
   return exists;
 }
 
-const gchar *
+gchar *
 gst_mpd_helper_get_audio_codec_from_mime (GstCaps * caps)
 {
   GstStructure *s;
   const gchar *name = "";
-  const gchar *codec_name = NULL;
+  gchar *codec_name = NULL;
 
   if (!caps)
     return NULL;
@@ -95,7 +95,7 @@ gst_mpd_helper_get_audio_codec_from_mime (GstCaps * caps)
     gint mpeg_version;
     if (gst_structure_get_int (s, "mpegversion", &mpeg_version)) {
       if (mpeg_version == 4)
-        return "mp4a";
+        return g_strdup ("mp4a.40.2");
     }
 
   } else {
@@ -106,12 +106,12 @@ done:
   return codec_name;
 }
 
-const gchar *
+gchar *
 gst_mpd_helper_get_video_codec_from_mime (GstCaps * caps)
 {
   GstStructure *s;
   const gchar *name = "";
-  const gchar *codec_name = NULL;
+  gchar *codec_name = NULL;
 
   if (!caps)
     return NULL;
@@ -121,9 +121,23 @@ gst_mpd_helper_get_video_codec_from_mime (GstCaps * caps)
     goto done;
   name = gst_structure_get_name (s);
   if (!g_strcmp0 (name, "video/x-h264")) {
-    return "avc1";
+    const GValue *v = NULL;
+    if ((v = gst_structure_get_value (s, "codec_data"))) {
+      GstBuffer *codec_data = NULL;
+      GstMapInfo map;
+      gchar *extra = NULL;
+      codec_data = gst_value_get_buffer (v);
+      gst_buffer_map ((GstBuffer *) codec_data, &map, GST_MAP_READ);
+      extra =
+          g_strdup_printf ("avc1.%02x%02x%02x", map.data[1], map.data[2],
+          map.data[3]);
+      gst_buffer_unmap ((GstBuffer *) codec_data, &map);
+      return extra;
+    } else {
+      return g_strdup ("avc1");
+    }
   } else if (!g_strcmp0 (name, "video/x-h265")) {
-    return "hvc1";
+    return g_strdup ("hvc1");
   } else {
     GST_DEBUG ("No codecs for this caps name %s", name);
   }
