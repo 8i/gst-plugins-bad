@@ -3391,3 +3391,25 @@ gst_mpd_client_add_segment_url (GstMPDClient * client,
 
   return TRUE;
 }
+
+/* add a UTCTiming node */
+gboolean
+gst_mpd_client_add_utc_timing_node (GstMPDClient * client,
+    const gchar * property_name, ...)
+{
+  GstMPDUTCTimingNode *utctiming_node = NULL;
+  va_list myargs;
+
+  g_return_val_if_fail (client != NULL, FALSE);
+  g_return_val_if_fail (client->mpd_root_node != NULL, FALSE);
+
+  va_start (myargs, property_name);
+
+  utctiming_node = gst_mpd_utctiming_node_new ();
+  g_object_set_valist (G_OBJECT (utctiming_node), property_name, myargs);
+  client->mpd_root_node->UTCTimings =
+      g_list_append (client->mpd_root_node->UTCTimings, utctiming_node);
+
+  va_end (myargs);
+  return TRUE;
+}

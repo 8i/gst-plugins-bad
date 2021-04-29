@@ -172,7 +172,6 @@ gboolean gst_mpd_client_set_segment_template (GstMPDClient * client,
                                               gchar * rep_id,
                                               const gchar * property_name,
                                               ...);
-
 /* create a new node */
 gboolean gst_mpd_client_add_baseurl_node (GstMPDClient * client,
                                           const gchar * property_name,
@@ -183,6 +182,9 @@ gboolean gst_mpd_client_add_segment_url (GstMPDClient * client,
                                          gchar * rep_id,
                                          const gchar * property_name,
                                          ...);
+gboolean gst_mpd_client_add_utc_timing_node (GstMPDClient * client,
+                                       const gchar * property_name,
+                                       ...);
 G_END_DECLS
 
 #endif /* __GST_MPDCLIENT_H__ */
