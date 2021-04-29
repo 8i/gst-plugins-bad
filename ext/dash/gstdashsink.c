@@ -489,7 +489,7 @@ gst_dash_sink_add_splitmuxsink (GstDashSink * sink, GstDashSinkStream * stream)
         g_strconcat (stream->representation_id, "_init.mp4", NULL);
     segment_init_path =
         g_build_path ("/", sink->mpd_root_path, segment_init_name, NULL);
-    g_object_set (mux, "fragment-duration", sink->target_duration * GST_MSECOND,
+    g_object_set (mux, "fragment-duration", sink->target_duration * 1000,
         "faststart-file", segment_init_path, "streamable", TRUE, NULL);
   }
 
