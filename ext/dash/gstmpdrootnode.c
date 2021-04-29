@@ -104,6 +104,9 @@ gst_mpd_root_node_set_property (GObject * object, guint prop_id,
     case PROP_MPD_ROOT_MIN_BUFFER_TIME:
       self->minBufferTime = g_value_get_uint64 (value);
       break;
+    case PROP_MPD_ROOT_SUGGESTED_PRESENTATION_DELAY:
+      self->suggestedPresentationDelay = g_value_get_uint64 (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -154,6 +157,9 @@ gst_mpd_root_node_get_property (GObject * object, guint prop_id,
       break;
     case PROP_MPD_ROOT_MIN_BUFFER_TIME:
       g_value_set_uint64 (value, self->minBufferTime);
+      break;
+    case PROP_MPD_ROOT_SUGGESTED_PRESENTATION_DELAY:
+      g_value_set_uint64 (value, self->suggestedPresentationDelay);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -354,6 +360,11 @@ gst_mpd_root_node_class_init (GstMPDRootNodeClass * klass)
       PROP_MPD_ROOT_MIN_BUFFER_TIME,
       g_param_spec_uint64 ("min-buffer-time", "mininim buffer time",
           "mininim buffer time", 0,
+          G_MAXUINT64, 0, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class,
+      PROP_MPD_ROOT_SUGGESTED_PRESENTATION_DELAY,
+      g_param_spec_uint64 ("suggested-presentation-delay",
+          "suggested presentation delay", "suggested presentation delay", 0,
           G_MAXUINT64, 0, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 

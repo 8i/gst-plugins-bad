@@ -161,6 +161,7 @@ static const DashSinkMuxer dash_muxer_list[] = {
 #define DEFAULT_MPD_MIN_BUFFER_TIME 2000
 #define DEFAULT_MPD_PERIOD_DURATION GST_CLOCK_TIME_NONE
 #define DEFAULT_TEMP_EXTENSION ".tmp"
+#define DEFAULT_MPD_SUGGESTED_PRESENTATION_DELAY 4000
 
 #define DEFAULT_DASH_SINK_MUXER GST_DASH_SINK_MUXER_TS
 
@@ -626,7 +627,9 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
       GstDateTime *now = gst_date_time_new_now_utc ();
       gst_mpd_client_set_root_node (sink->mpd_client,
           "type", GST_MPD_FILE_TYPE_DYNAMIC,
-          "availability-start-time", now, NULL);
+          "availability-start-time", now,
+          "suggested-presentation-delay",
+          DEFAULT_MPD_SUGGESTED_PRESENTATION_DELAY, NULL);
       gst_date_time_unref (now);
     }
     if (sink->minimum_update_period)
