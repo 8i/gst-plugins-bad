@@ -117,8 +117,9 @@ gst_mpd_period_get_xml_node (GstMPDNode * node)
     gst_xml_helper_set_prop_string (period_xml_node, "id", self->id);
 
   gst_xml_helper_set_prop_duration (period_xml_node, "start", self->start);
-  gst_xml_helper_set_prop_duration (period_xml_node, "duration",
-      self->duration);
+  if (self->duration)
+    gst_xml_helper_set_prop_duration (period_xml_node, "duration",
+        self->duration);
   gst_xml_helper_set_prop_boolean (period_xml_node, "bitstreamSwitching",
       self->bitstreamSwitching);
 

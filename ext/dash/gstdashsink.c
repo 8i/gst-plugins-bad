@@ -694,7 +694,7 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
             sink->current_period_id, "duration",
             gst_util_uint64_scale (sink->running_time, 1, GST_MSECOND), NULL);
     }
-    if (!sink->minimum_update_period) {
+    if (!sink->minimum_update_period && !sink->is_dynamic) {
       if (sink->period_duration != DEFAULT_MPD_PERIOD_DURATION)
         gst_mpd_client_set_root_node (sink->mpd_client,
             "media-presentation-duration", sink->period_duration, NULL);
