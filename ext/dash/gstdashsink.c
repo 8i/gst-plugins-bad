@@ -188,6 +188,7 @@ enum
   PROP_MPD_MIN_BUFFER_TIME,
   PROP_MPD_BASEURL,
   PROP_MPD_PERIOD_DURATION,
+  PROP_MPD_TIMING_URI,
 };
 
 typedef enum
@@ -265,6 +266,7 @@ struct _GstDashSink
   guint64 min_buffer_time;
   gint64 period_duration;
   guint max_files;
+  gchar *timing_uri;
 };
 
 static GstStaticPadTemplate video_sink_template =
@@ -468,6 +470,9 @@ gst_dash_sink_class_init (GstDashSinkClass * klass)
           "Provides the explicit duration of a period in milliseconds", 0,
           G_MAXUINT64, DEFAULT_MPD_PERIOD_DURATION,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (gobject_class, PROP_MPD_TIMING_URI,
+      g_param_spec_string ("mpd-timing-uri", "UTCTiming URI",
+          "UTCTiming URI", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
   gst_type_mark_as_plugin_api (GST_TYPE_DASH_SINK_MUXER, 0);
 }
@@ -631,6 +636,11 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
           "suggested-presentation-delay",
           DEFAULT_MPD_SUGGESTED_PRESENTATION_DELAY, NULL);
       gst_date_time_unref (now);
+      if (sink->timing_uri) {
+        gst_mpd_client_add_utc_timing_node (sink->mpd_client,
+            "scheme-id-uri", "urn:mpeg:dash:utc:http-xsdate:2014",
+            "value", sink->timing_uri, NULL);
+      }
     }
     if (sink->minimum_update_period)
       gst_mpd_client_set_root_node (sink->mpd_client,
@@ -1038,6 +1048,10 @@ gst_dash_sink_set_property (GObject * object, guint prop_id,
     case PROP_MAX_FILES:
       sink->max_files = g_value_get_uint (value);
       break;
+    case PROP_MPD_TIMING_URI:
+      g_free (sink->timing_uri);
+      sink->timing_uri = g_value_dup_string (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -1086,6 +1100,9 @@ gst_dash_sink_get_property (GObject * object, guint prop_id,
       break;
     case PROP_MAX_FILES:
       g_value_set_uint (value, sink->max_files);
+      break;
+    case PROP_MPD_TIMING_URI:
+      g_value_set_string (value, sink->timing_uri);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);

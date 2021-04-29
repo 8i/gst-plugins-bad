@@ -23,6 +23,13 @@
 
 G_DEFINE_TYPE (GstMPDUTCTimingNode, gst_mpd_utctiming_node, GST_TYPE_MPD_NODE);
 
+enum
+{
+  PROP_MPD_UTCTIMING_0,
+  PROP_MPD_UTCTIMING_SCHEMA_TYPE,
+  PROP_MPD_UTCTIMING_VALUE,
+};
+
 static const struct GstMPDUTCTimingMethod gst_mpd_utctiming_methods[] = {
   {"urn:mpeg:dash:utc:ntp:2014", GST_MPD_UTCTIMING_TYPE_NTP},
   {"urn:mpeg:dash:utc:sntp:2014", GST_MPD_UTCTIMING_TYPE_SNTP},
@@ -49,11 +56,52 @@ static const struct GstMPDUTCTimingMethod gst_mpd_utctiming_methods[] = {
 /* GObject VMethods */
 
 static void
+gst_mpd_utctiming_node_set_property (GObject * object, guint prop_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  GstMPDUTCTimingNode *self = GST_MPD_UTCTIMING_NODE (object);
+  switch (prop_id) {
+    case PROP_MPD_UTCTIMING_SCHEMA_TYPE:
+    {
+      const gchar *schema_name = g_value_get_string (value);
+      self->method = gst_mpd_utctiming_get_method ((gchar *) schema_name);
+    }
+      break;
+    case PROP_MPD_UTCTIMING_VALUE:
+      g_free (self->value);
+      self->value = g_value_dup_string (value);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
+}
+
+static void
+gst_mpd_utctiming_node_get_property (GObject * object, guint prop_id,
+    GValue * value, GParamSpec * pspec)
+{
+  GstMPDUTCTimingNode *self = GST_MPD_UTCTIMING_NODE (object);
+  switch (prop_id) {
+    case PROP_MPD_UTCTIMING_SCHEMA_TYPE:
+      g_value_set_string (value,
+          gst_mpd_utctiming_get_scheme_id_uri (self->method));
+      break;
+    case PROP_MPD_UTCTIMING_VALUE:
+      g_value_set_string (value, self->value);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
+}
+
+static void
 gst_mpd_utctiming_node_finalize (GObject * object)
 {
   GstMPDUTCTimingNode *self = GST_MPD_UTCTIMING_NODE (object);
 
-  g_strfreev (self->urls);
+  g_free (self->value);
 
   G_OBJECT_CLASS (gst_mpd_utctiming_node_parent_class)->finalize (object);
 }
@@ -64,19 +112,16 @@ static xmlNodePtr
 gst_mpd_utc_timing_get_xml_node (GstMPDNode * node)
 {
   xmlNodePtr utc_timing_xml_node = NULL;
-  gchar *value = NULL;
   GstMPDUTCTimingNode *self = GST_MPD_UTCTIMING_NODE (node);
 
   utc_timing_xml_node = xmlNewNode (NULL, (xmlChar *) "UTCTiming");
 
   if (self->method) {
-    gst_xml_helper_set_prop_string (utc_timing_xml_node, "schemeiduri",
+    gst_xml_helper_set_prop_string (utc_timing_xml_node, "schemeIdUri",
         (gchar *) gst_mpd_utctiming_get_scheme_id_uri (self->method));
   }
-  if (self->urls) {
-    value = g_strjoinv (" ", self->urls);
-    gst_xml_helper_set_prop_string (utc_timing_xml_node, "value", value);
-    g_free (value);
+  if (self->value) {
+    gst_xml_helper_set_prop_string (utc_timing_xml_node, "value", self->value);
   }
 
   return utc_timing_xml_node;
@@ -92,8 +137,17 @@ gst_mpd_utctiming_node_class_init (GstMPDUTCTimingNodeClass * klass)
   m_klass = GST_MPD_NODE_CLASS (klass);
 
   object_class->finalize = gst_mpd_utctiming_node_finalize;
+  object_class->set_property = gst_mpd_utctiming_node_set_property;
+  object_class->get_property = gst_mpd_utctiming_node_get_property;
 
   m_klass->get_xml_node = gst_mpd_utc_timing_get_xml_node;
+
+  g_object_class_install_property (object_class, PROP_MPD_UTCTIMING_SCHEMA_TYPE,
+      g_param_spec_string ("scheme-id-uri", "scheme URI", "schema URI",
+          NULL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class, PROP_MPD_UTCTIMING_VALUE,
+      g_param_spec_string ("value", "value", "value",
+          NULL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 static void

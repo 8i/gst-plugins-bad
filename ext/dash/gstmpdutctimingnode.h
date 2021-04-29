@@ -51,6 +51,7 @@ struct _GstMPDUTCTimingNode
 {
   GstObject parent_instance;
   GstMPDUTCTimingType method;
+  gchar* value;
   /* NULL terminated array of strings */
   gchar **urls;
   /* TODO add missing fields such as weight etc.*/
