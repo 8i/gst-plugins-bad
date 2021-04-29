@@ -638,7 +638,7 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
     if (sink->mpd_baseurl)
       gst_mpd_client_add_baseurl_node (sink->mpd_client, "url",
           sink->mpd_baseurl, "availability-time-offset",
-          sink->min_buffer_time / 1000, NULL);
+          sink->target_duration * 2, NULL);
     /* Add or set period node with stream ids
      * TODO support multiple period
      * */
