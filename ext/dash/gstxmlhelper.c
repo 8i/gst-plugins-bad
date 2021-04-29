@@ -1165,30 +1165,29 @@ gst_xml_helper_set_prop_duration (xmlNode * node, const gchar * name,
 {
   gchar *text;
   gint years, months, days, hours, minutes, seconds, milliseconds;
-  if (value) {
-    years = (gint) (XML_HELPER_MS_TO_SEC (value) / (XML_HELPER_YEAR_TO_SEC));
-    months =
-        (gint) ((XML_HELPER_MS_TO_SEC (value) % XML_HELPER_YEAR_TO_SEC) /
-        XML_HELPER_MONTH_TO_SEC);
-    days =
-        (gint) ((XML_HELPER_MS_TO_SEC (value) % XML_HELPER_MONTH_TO_SEC) /
-        XML_HELPER_DAY_TO_SEC);
-    hours =
-        (gint) ((XML_HELPER_MS_TO_SEC (value) % XML_HELPER_DAY_TO_SEC) /
-        XML_HELPER_HOUR_TO_SEC);
-    minutes =
-        (gint) ((XML_HELPER_MS_TO_SEC (value) % XML_HELPER_HOUR_TO_SEC) /
-        XML_HELPER_MINUTE_TO_SEC);
-    seconds = (gint) (XML_HELPER_MS_TO_SEC (value) % XML_HELPER_MINUTE_TO_SEC);
-    milliseconds = value % 1000;
 
-    text =
-        g_strdup_printf ("P%dY%dM%dDT%dH%dM%d.%dS", years, months, days, hours,
-        minutes, seconds, milliseconds);
-    GST_LOG ("duration %" G_GUINT64_FORMAT " -> %s", value, text);
-    xmlSetProp (node, (xmlChar *) name, (xmlChar *) text);
-    g_free (text);
-  }
+  years = (gint) (XML_HELPER_MS_TO_SEC (value) / (XML_HELPER_YEAR_TO_SEC));
+  months =
+      (gint) ((XML_HELPER_MS_TO_SEC (value) % XML_HELPER_YEAR_TO_SEC) /
+      XML_HELPER_MONTH_TO_SEC);
+  days =
+      (gint) ((XML_HELPER_MS_TO_SEC (value) % XML_HELPER_MONTH_TO_SEC) /
+      XML_HELPER_DAY_TO_SEC);
+  hours =
+      (gint) ((XML_HELPER_MS_TO_SEC (value) % XML_HELPER_DAY_TO_SEC) /
+      XML_HELPER_HOUR_TO_SEC);
+  minutes =
+      (gint) ((XML_HELPER_MS_TO_SEC (value) % XML_HELPER_HOUR_TO_SEC) /
+      XML_HELPER_MINUTE_TO_SEC);
+  seconds = (gint) (XML_HELPER_MS_TO_SEC (value) % XML_HELPER_MINUTE_TO_SEC);
+  milliseconds = value % 1000;
+
+  text =
+      g_strdup_printf ("P%dY%dM%dDT%dH%dM%d.%dS", years, months, days, hours,
+      minutes, seconds, milliseconds);
+  GST_LOG ("duration %" G_GUINT64_FORMAT " -> %s", value, text);
+  xmlSetProp (node, (xmlChar *) name, (xmlChar *) text);
+  g_free (text);
 }
 
 void
