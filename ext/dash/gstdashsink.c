@@ -805,12 +805,23 @@ gst_dash_sink_handle_message (GstBin * bin, GstMessage * message)
               g_strdup (gst_structure_get_string (s, "location"));
           gst_structure_get_clock_time (s, "running-time",
               &stream->current_running_time_start);
+          guint64 initial_pts =
+              GST_TIME_AS_MSECONDS (stream->current_running_time_start);
+          GST_DEBUG_OBJECT (sink, "opening segment %s at %lld",
+              stream->current_segment_location, initial_pts);
         } else if (gst_structure_has_name (s, "splitmuxsink-fragment-closed")) {
           GstClockTime running_time;
           gchar *temp_path, *end = NULL;
           g_assert (strcmp (stream->current_segment_location,
                   gst_structure_get_string (s, "location")) == 0);
           gst_structure_get_clock_time (s, "running-time", &running_time);
+          guint64 initial_pts = GST_TIME_AS_MSECONDS (running_time);
+          guint64 duration =
+              initial_pts -
+              GST_TIME_AS_MSECONDS (stream->current_running_time_start);
+          GST_DEBUG_OBJECT (sink,
+              "closing segment %s at %lld with duration %lld",
+              stream->current_segment_location, initial_pts, duration);
           if (sink->running_time < running_time)
             sink->running_time = running_time;
 
