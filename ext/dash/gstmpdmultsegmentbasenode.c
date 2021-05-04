@@ -29,6 +29,8 @@ enum
   PROP_MPD_MULT_SEGMENT_BASE_0 = 100,
   PROP_MPD_MULT_SEGMENT_BASE_DURATION,
   PROP_MPD_MULT_SEGMENT_BASE_START_NUMBER,
+  PROP_MPD_MULT_SEGMENT_BASE_TIMESCALE,
+  PROP_MPD_MULT_SEGMENT_BASE_PRESENTATION_TIME_OFFSET,
 };
 
 /* GObject VMethods */
@@ -44,6 +46,12 @@ gst_mpd_mult_segment_base_node_set_property (GObject * object, guint prop_id,
       break;
     case PROP_MPD_MULT_SEGMENT_BASE_START_NUMBER:
       self->startNumber = g_value_get_uint (value);
+      break;
+    case PROP_MPD_MULT_SEGMENT_BASE_PRESENTATION_TIME_OFFSET:
+      self->presentationTimeOffset = g_value_get_uint64 (value);
+      break;
+    case PROP_MPD_MULT_SEGMENT_BASE_TIMESCALE:
+      self->timescale = g_value_get_uint (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -62,6 +70,12 @@ gst_mpd_mult_segment_base_node_get_property (GObject * object, guint prop_id,
       break;
     case PROP_MPD_MULT_SEGMENT_BASE_START_NUMBER:
       g_value_set_uint (value, self->startNumber);
+      break;
+    case PROP_MPD_MULT_SEGMENT_BASE_PRESENTATION_TIME_OFFSET:
+      g_value_set_uint64 (value, self->presentationTimeOffset);
+      break;
+    case PROP_MPD_MULT_SEGMENT_BASE_TIMESCALE:
+      g_value_set_uint (value, self->timescale);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -96,6 +110,17 @@ gst_mpd_mult_segment_base_get_xml_node (GstMPDNode * node,
   if (self->startNumber)
     gst_xml_helper_set_prop_uint (mult_segment_base_node, "startNumber",
         self->startNumber);
+
+  if (self->presentationTimeOffset) {
+    gst_xml_helper_set_prop_uint64 (mult_segment_base_node,
+        "presentationTimeOffset", self->presentationTimeOffset);
+  }
+
+  if (self->timescale) {
+    gst_xml_helper_set_prop_uint (mult_segment_base_node, "timescale",
+        self->timescale);
+  }
+
   if (self->SegmentBase)
     gst_mpd_node_add_child_node (GST_MPD_NODE (self->SegmentBase),
         mult_segment_base_node);
@@ -129,6 +154,15 @@ gst_mpd_mult_segment_base_node_class_init (GstMPDMultSegmentBaseNodeClass *
       g_param_spec_uint ("start-number", "start number",
           "start number in the segment list", 0, G_MAXINT, 0,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class,
+      PROP_MPD_MULT_SEGMENT_BASE_PRESENTATION_TIME_OFFSET,
+      g_param_spec_uint64 ("presentation-time-offset",
+          "Presentation time offset", "presentation time offset", 0,
+          G_MAXUINT64, 0, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class,
+      PROP_MPD_MULT_SEGMENT_BASE_TIMESCALE, g_param_spec_uint ("timescale",
+          "timescale", "timescale", 0, G_MAXUINT64, 0,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 static void
@@ -136,6 +170,8 @@ gst_mpd_mult_segment_base_node_init (GstMPDMultSegmentBaseNode * self)
 {
   self->duration = 0;
   self->startNumber = 0;
+  self->presentationTimeOffset = 0;
+  self->timescale = 0;
   self->SegmentBase = NULL;
   self->SegmentTimeline = NULL;
   self->BitstreamSwitching = NULL;

@@ -33,6 +33,8 @@ struct _GstMPDMultSegmentBaseNode
   GstObject     base;
   guint duration;                  /* in seconds */
   guint startNumber;
+  guint64 presentationTimeOffset;
+  guint timescale;
   /* SegmentBaseType extension */
   GstMPDSegmentBaseNode *SegmentBase;
   /* SegmentTimeline node */
