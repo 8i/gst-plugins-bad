@@ -622,6 +622,8 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
 {
   if (!sink->mpd_client) {
     GList *l;
+    guint64 presentation_time_offset = 0;
+    guint timescale = 0;
     sink->mpd_client = gst_mpd_client_new ();
     /* Add or set root node with stream ids */
     gst_mpd_client_set_root_node (sink->mpd_client,
@@ -657,6 +659,8 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
         sink->current_period_id, NULL);
     for (l = sink->streams; l != NULL; l = l->next) {
       GstDashSinkStream *stream = (GstDashSinkStream *) l->data;
+      guint64 initial_pts =
+          GST_TIME_AS_MSECONDS (stream->current_running_time_start);
       /* Add or set adaptation_set node with stream ids
        * AdaptationSet per stream type
        * */
@@ -669,6 +673,8 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
           stream->mimetype, "codecs", stream->codec, NULL);
       /* Set specific to stream type */
       if (stream->type == DASH_SINK_STREAM_TYPE_VIDEO) {
+        timescale = 90000;      // Assuming 90KHz rate to match video
+        presentation_time_offset = (timescale / 1000) * initial_pts;
         gst_mpd_client_set_adaptation_set_node (sink->mpd_client,
             sink->current_period_id, stream->adaptation_set_id, "content-type",
             stream->content_type, NULL);
@@ -677,6 +683,9 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
             stream->representation_id, "width", stream->info.video.width,
             "height", stream->info.video.height, NULL);
       } else if (stream->type == DASH_SINK_STREAM_TYPE_AUDIO) {
+        presentation_time_offset =
+            (stream->info.audio.rate / 1000) * initial_pts;
+        timescale = stream->info.audio.rate;
         gst_mpd_client_set_adaptation_set_node (sink->mpd_client,
             sink->current_period_id, stream->adaptation_set_id, "content-type",
             stream->content_type, NULL);
@@ -685,6 +694,8 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
             stream->representation_id, "audio-sampling-rate",
             stream->info.audio.rate, NULL);
       } else if (stream->type == DASH_SINK_STREAM_TYPE_META) {
+        timescale = 90000;      // Assuming 90KHz rate to match video
+        presentation_time_offset = (timescale / 1000) * initial_pts;
         gst_mpd_client_set_adaptation_set_node (sink->mpd_client, sink->current_period_id, stream->adaptation_set_id, "content-type", stream->content_type, NULL);      // TODO make this more generic?
       }
       if (sink->use_segment_list) {
@@ -698,11 +709,16 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
             ".", dash_muxer_list[sink->muxer].file_ext, NULL);
         gchar *init_name =
             g_strconcat (stream->representation_id, "_init.mp4", NULL);
+        gint duration = sink->target_duration;
+        if (timescale > 0) {
+          duration *= timescale;
+        }
         gst_mpd_client_set_segment_template (sink->mpd_client,
             sink->current_period_id, stream->adaptation_set_id,
             stream->representation_id, "media", media_segment_template,
-            "duration", sink->target_duration, "initialization", init_name,
-            NULL);
+            "duration", duration, "initialization", init_name,
+            "presentation-time-offset", presentation_time_offset,
+            "timescale", timescale, NULL);
         g_free (media_segment_template);
       }
     }
