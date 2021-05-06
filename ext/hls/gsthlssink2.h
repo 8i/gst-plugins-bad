@@ -56,6 +56,7 @@ struct _GstHlsSink2
 
   gchar *current_location;
   GstClockTime current_running_time_start;
+  GstDateTime  *current_segment_start;
   GQueue old_locations;
   GstM3U8PlaylistRenderState state;
 };

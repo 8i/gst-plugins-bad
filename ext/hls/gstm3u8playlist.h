@@ -58,6 +58,7 @@ void              gst_m3u8_playlist_free (GstM3U8Playlist * playlist);
 gboolean          gst_m3u8_playlist_add_entry (GstM3U8Playlist * playlist,
                                                const gchar     * url,
                                                const gchar     * title,
+                                               const gchar     * start_time,
                                                gfloat            duration,
                                                guint             index,
                                                gboolean          discontinuous);

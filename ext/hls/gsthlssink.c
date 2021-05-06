@@ -302,7 +302,7 @@ gst_hls_sink_handle_message (GstBin * bin, GstMessage * message)
       }
 
       gst_m3u8_playlist_add_entry (sink->playlist, entry_location,
-          NULL, duration, sink->index, discont);
+          NULL, NULL, duration, sink->index, discont);
       g_free (entry_location);
 
       gst_hls_sink_write_playlist (sink);
