@@ -40,11 +40,12 @@ struct _GstM3U8Entry
   gchar *title;
   gchar *url;
   gboolean discontinuous;
+  gchar *time;
 };
 
 static GstM3U8Entry *
 gst_m3u8_entry_new (const gchar * url, const gchar * title,
-    gfloat duration, gboolean discontinuous)
+    const gchar * time, gfloat duration, gboolean discontinuous)
 {
   GstM3U8Entry *entry;
 
@@ -53,6 +54,7 @@ gst_m3u8_entry_new (const gchar * url, const gchar * title,
   entry = g_new0 (GstM3U8Entry, 1);
   entry->url = g_strdup (url);
   entry->title = g_strdup (title);
+  entry->time = g_strdup (time);
   entry->duration = duration;
   entry->discontinuous = discontinuous;
   return entry;
@@ -65,6 +67,7 @@ gst_m3u8_entry_free (GstM3U8Entry * entry)
 
   g_free (entry->url);
   g_free (entry->title);
+  g_free (entry->time);
   g_free (entry);
 }
 
@@ -98,7 +101,8 @@ gst_m3u8_playlist_free (GstM3U8Playlist * playlist)
 gboolean
 gst_m3u8_playlist_add_entry (GstM3U8Playlist * playlist,
     const gchar * url, const gchar * title,
-    gfloat duration, guint index, gboolean discontinuous)
+    const gchar * start_time, gfloat duration, guint index,
+    gboolean discontinuous)
 {
   GstM3U8Entry *entry;
 
@@ -108,7 +112,7 @@ gst_m3u8_playlist_add_entry (GstM3U8Playlist * playlist,
   if (playlist->type == GST_M3U8_PLAYLIST_TYPE_VOD)
     return FALSE;
 
-  entry = gst_m3u8_entry_new (url, title, duration, discontinuous);
+  entry = gst_m3u8_entry_new (url, title, start_time, duration, discontinuous);
 
   if (playlist->window_size > 0) {
     /* Delete old entries from the playlist */
@@ -178,6 +182,10 @@ gst_m3u8_playlist_render (GstM3U8Playlist * playlist)
           (gint) ((entry->duration + 500 * GST_MSECOND) / GST_SECOND),
           entry->title ? entry->title : "");
     } else {
+      // #EXT-X-PROGRAM-DATE-TIME:2020-06-03T13:50:40.586+00:00
+      if (entry->time)
+        g_string_append_printf (playlist_str, "#EXT-X-PROGRAM-DATE-TIME:%s\n",
+            entry->time);
       g_string_append_printf (playlist_str, "#EXTINF:%s,%s\n",
           g_ascii_dtostr (buf, sizeof (buf), entry->duration / GST_SECOND),
           entry->title ? entry->title : "");

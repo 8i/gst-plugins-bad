@@ -425,6 +425,10 @@ gst_hls_sink2_handle_message (GstBin * bin, GstMessage * message)
         if (gst_structure_has_name (s, "splitmuxsink-fragment-opened")) {
           gst_structure_get_clock_time (s, "running-time",
               &sink->current_running_time_start);
+          GstDateTime *start_time = gst_date_time_new_now_utc ();
+          sink->current_segment_start =
+              gst_date_time_to_iso8601_string (start_time);
+          gst_date_time_unref (start_time);
         } else if (gst_structure_has_name (s, "splitmuxsink-fragment-closed")) {
           GstClockTime running_time;
           gchar *entry_location;
@@ -447,7 +451,8 @@ gst_hls_sink2_handle_message (GstBin * bin, GstMessage * message)
           }
 
           gst_m3u8_playlist_add_entry (sink->playlist, entry_location,
-              NULL, running_time - sink->current_running_time_start,
+              NULL, sink->current_segment_start,
+              running_time - sink->current_running_time_start,
               sink->index++, FALSE);
           g_free (entry_location);
 
@@ -485,6 +490,9 @@ gst_hls_sink2_handle_message (GstBin * bin, GstMessage * message)
 
           g_free (sink->current_location);
           sink->current_location = NULL;
+
+          g_free (sink->current_segment_start);
+          sink->current_segment_start = NULL;
         }
       }
       break;
