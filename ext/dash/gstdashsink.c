@@ -238,6 +238,8 @@ typedef struct _GstDashSinkStream
   gchar *codec;
   gchar *content_type;
   GstClockTime current_running_time_start;
+  guint64 first_pts;
+  guint64 last_duration;
   GQueue old_segment_locations;
   GstDashSinkStreamInfo info;
 } GstDashSinkStream;
@@ -659,8 +661,8 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
         sink->current_period_id, NULL);
     for (l = sink->streams; l != NULL; l = l->next) {
       GstDashSinkStream *stream = (GstDashSinkStream *) l->data;
-      guint64 initial_pts =
-          GST_TIME_AS_MSECONDS (stream->current_running_time_start);
+      guint64 initial_pts = stream->first_pts;
+      guint64 duration = 0;
       /* Add or set adaptation_set node with stream ids
        * AdaptationSet per stream type
        * */
@@ -682,10 +684,12 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
             sink->current_period_id, stream->adaptation_set_id,
             stream->representation_id, "width", stream->info.video.width,
             "height", stream->info.video.height, NULL);
+        duration = sink->target_duration * timescale;
       } else if (stream->type == DASH_SINK_STREAM_TYPE_AUDIO) {
         presentation_time_offset =
             (stream->info.audio.rate / 1000) * initial_pts;
         timescale = stream->info.audio.rate;
+        duration = stream->last_duration * timescale / 1000;
         gst_mpd_client_set_adaptation_set_node (sink->mpd_client,
             sink->current_period_id, stream->adaptation_set_id, "content-type",
             stream->content_type, NULL);
@@ -695,6 +699,7 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
             stream->info.audio.rate, NULL);
       } else if (stream->type == DASH_SINK_STREAM_TYPE_META) {
         timescale = 90000;      // Assuming 90KHz rate to match video
+        duration = sink->target_duration * timescale;
         presentation_time_offset = (timescale / 1000) * initial_pts;
         gst_mpd_client_set_adaptation_set_node (sink->mpd_client, sink->current_period_id, stream->adaptation_set_id, "content-type", stream->content_type, NULL);      // TODO make this more generic?
       }
@@ -709,10 +714,6 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
             ".", dash_muxer_list[sink->muxer].file_ext, NULL);
         gchar *init_name =
             g_strconcat (stream->representation_id, "_init.mp4", NULL);
-        gint duration = sink->target_duration;
-        if (timescale > 0) {
-          duration *= timescale;
-        }
         gst_mpd_client_set_segment_template (sink->mpd_client,
             sink->current_period_id, stream->adaptation_set_id,
             stream->representation_id, "media", media_segment_template,
@@ -821,12 +822,12 @@ gst_dash_sink_handle_message (GstBin * bin, GstMessage * message)
                   gst_structure_get_string (s, "location")) == 0);
           gst_structure_get_clock_time (s, "running-time", &running_time);
           guint64 initial_pts = GST_TIME_AS_MSECONDS (running_time);
-          guint64 duration =
-              initial_pts -
+          stream->last_duration = initial_pts -
               GST_TIME_AS_MSECONDS (stream->current_running_time_start);
           GST_DEBUG_OBJECT (sink,
               "closing segment %s at %lld with duration %lld",
-              stream->current_segment_location, initial_pts, duration);
+              stream->current_segment_location, initial_pts,
+              stream->last_duration);
           if (sink->running_time < running_time)
             sink->running_time = running_time;
 
@@ -891,10 +892,12 @@ _dash_sink_buffers_probe (GstPad * pad, GstPadProbeInfo * probe_info,
   GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER (probe_info);
   GstDashSinkStream *stream = (GstDashSinkStream *) user_data;
 
-  if (GST_BUFFER_DURATION (buffer))
+  if (GST_BUFFER_DURATION (buffer)) {
     stream->bitrate =
         gst_buffer_get_size (buffer) * GST_SECOND /
         GST_BUFFER_DURATION (buffer);
+    stream->first_pts = GST_BUFFER_PTS (buffer);
+  }
 
   return GST_PAD_PROBE_OK;
 }
