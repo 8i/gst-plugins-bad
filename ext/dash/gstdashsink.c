@@ -816,6 +816,8 @@ gst_dash_sink_handle_message (GstBin * bin, GstMessage * message)
           GST_DEBUG_OBJECT (sink, "opening segment %s at %lld",
               stream->current_segment_location, initial_pts);
         } else if (gst_structure_has_name (s, "splitmuxsink-fragment-closed")) {
+          gboolean write_mpd = TRUE;
+          GList *l;
           GstClockTime running_time;
           gchar *temp_path, *end = NULL;
           g_assert (strcmp (stream->current_segment_location,
@@ -841,7 +843,14 @@ gst_dash_sink_handle_message (GstBin * bin, GstMessage * message)
           };
           g_free (temp_path);
 
-          gst_dash_sink_write_mpd_file (sink, stream);
+
+          for (l = sink->streams; l != NULL; l = l->next) {
+            GstDashSinkStream *stream = (GstDashSinkStream *) l->data;
+            if (write_mpd == TRUE && stream->last_duration == 0)
+              write_mpd = FALSE;
+          }
+          if (write_mpd)
+            gst_dash_sink_write_mpd_file (sink, stream);
 
           g_queue_push_tail (&stream->old_segment_locations,
               g_strdup (stream->current_segment_location));
@@ -913,6 +922,7 @@ gst_dash_sink_request_new_pad (GstElement * element, GstPadTemplate * templ,
   const gchar *split_pad_name = pad_name;
 
   stream = g_new0 (GstDashSinkStream, 1);
+  stream->last_duration = 0;
   if (g_str_has_prefix (templ->name_template, "video")) {
     stream->type = DASH_SINK_STREAM_TYPE_VIDEO;
     stream->adaptation_set_id = ADAPTATION_SET_ID_VIDEO;
