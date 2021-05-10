@@ -723,6 +723,11 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
       }
     }
   }
+  GstDateTime *publish_time = gst_date_time_new_now_utc ();
+  gst_mpd_client_set_root_node (sink->mpd_client,
+      "publish-time", publish_time, NULL);
+  gst_date_time_unref (publish_time);
+
   /* MPD updates */
   if (sink->use_segment_list) {
     GST_INFO_OBJECT (sink, "Add segment URL: %s",
