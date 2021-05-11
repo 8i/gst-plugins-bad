@@ -229,6 +229,7 @@ typedef struct _GstDashSinkStream
   GstDashSinkStreamType type;
   GstPad *pad;
   gint buffer_probe;
+  gint event_probe;
   GstElement *splitmuxsink;
   gint adaptation_set_id;
   gchar *representation_id;
@@ -238,9 +239,10 @@ typedef struct _GstDashSinkStream
   gchar *codec;
   gchar *content_type;
   GstClockTime current_running_time_start;
-  guint64 first_pts;
+  GstClockTime first_pts;
   guint64 last_duration;
   GQueue old_segment_locations;
+  GstSegment segment;
   GstDashSinkStreamInfo info;
 } GstDashSinkStream;
 
@@ -661,7 +663,7 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
         sink->current_period_id, NULL);
     for (l = sink->streams; l != NULL; l = l->next) {
       GstDashSinkStream *stream = (GstDashSinkStream *) l->data;
-      guint64 initial_pts = stream->first_pts;
+      guint64 initial_pts = GST_TIME_AS_MSECONDS (stream->first_pts);
       guint64 duration = 0;
       /* Add or set adaptation_set node with stream ids
        * AdaptationSet per stream type
@@ -895,17 +897,47 @@ gst_dash_sink_handle_message (GstBin * bin, GstMessage * message)
 }
 
 static GstPadProbeReturn
+_dash_sink_event_probe (GstPad * pad, GstPadProbeInfo * info,
+    gpointer user_data)
+{
+  GstDashSinkStream *stream = (GstDashSinkStream *) user_data;
+  GstEvent *event = gst_pad_probe_info_get_event (info);
+
+  switch (GST_EVENT_TYPE (event)) {
+    case GST_EVENT_SEGMENT:
+    {
+      gst_event_copy_segment (event, &stream->segment);
+      break;
+    }
+    case GST_EVENT_FLUSH_STOP:
+      gst_segment_init (&stream->segment, GST_FORMAT_UNDEFINED);
+      break;
+    default:
+      break;
+  }
+  return GST_PAD_PROBE_OK;
+}
+
+static GstPadProbeReturn
 _dash_sink_buffers_probe (GstPad * pad, GstPadProbeInfo * probe_info,
     gpointer user_data)
 {
   GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER (probe_info);
   GstDashSinkStream *stream = (GstDashSinkStream *) user_data;
 
-  if (GST_BUFFER_DURATION (buffer)) {
+  if (GST_BUFFER_DURATION (buffer))
     stream->bitrate =
         gst_buffer_get_size (buffer) * GST_SECOND /
         GST_BUFFER_DURATION (buffer);
-    stream->first_pts = GST_BUFFER_PTS (buffer);
+  if (stream->first_pts == GST_CLOCK_TIME_NONE) {
+    GstClockTime timestamp;
+
+    timestamp = GST_BUFFER_TIMESTAMP (buffer);
+    if (!GST_CLOCK_TIME_IS_VALID (timestamp))
+      return;
+
+    stream->first_pts = gst_segment_to_running_time (&stream->segment,
+        GST_FORMAT_TIME, timestamp);
   }
 
   return GST_PAD_PROBE_OK;
@@ -923,6 +955,7 @@ gst_dash_sink_request_new_pad (GstElement * element, GstPadTemplate * templ,
 
   stream = g_new0 (GstDashSinkStream, 1);
   stream->last_duration = 0;
+  stream->first_pts = GST_CLOCK_TIME_NONE;
   if (g_str_has_prefix (templ->name_template, "video")) {
     stream->type = DASH_SINK_STREAM_TYPE_VIDEO;
     stream->adaptation_set_id = ADAPTATION_SET_ID_VIDEO;
@@ -976,6 +1009,9 @@ gst_dash_sink_request_new_pad (GstElement * element, GstPadTemplate * templ,
 
   stream->buffer_probe = gst_pad_add_probe (stream->pad,
       GST_PAD_PROBE_TYPE_BUFFER, _dash_sink_buffers_probe, stream, NULL);
+  stream->event_probe = gst_pad_add_probe (stream->pad,
+      GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, _dash_sink_event_probe, stream,
+      NULL);
 
   sink->streams = g_list_append (sink->streams, stream);
   GST_DEBUG_OBJECT (sink, "Adding a new stream with id %s",
@@ -1004,6 +1040,11 @@ gst_dash_sink_release_pad (GstElement * element, GstPad * pad)
   if (stream->buffer_probe > 0) {
     gst_pad_remove_probe (pad, stream->buffer_probe);
     stream->buffer_probe = 0;
+  }
+
+  if (stream->event_probe > 0) {
+    gst_pad_remove_probe (pad, stream->event_probe);
+    stream->event_probe = 0;
   }
 
   gst_object_ref (pad);
