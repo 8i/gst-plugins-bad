@@ -39,6 +39,7 @@
 #include "gstcudadownload.h"
 #include "gstcudaupload.h"
 #include "gstcudafilter.h"
+#include "gstcudabufferpool.h"
 
 GST_DEBUG_CATEGORY (gst_nvcodec_debug);
 GST_DEBUG_CATEGORY (gst_nvdec_debug);
@@ -236,6 +237,12 @@ plugin_init (GstPlugin * plugin)
       GST_TYPE_CUDA_DOWNLOAD);
   gst_element_register (plugin, "cudaupload", GST_RANK_NONE,
       GST_TYPE_CUDA_UPLOAD);
+  // Force registration of this type.  There must be a better way.
+  {
+    GstCudaBufferPool *pool;
+    pool = g_object_new (GST_TYPE_CUDA_BUFFER_POOL, NULL);
+    g_object_unref (pool);
+  }
 
   gst_cuda_filter_plugin_init (plugin);
 
