@@ -235,7 +235,8 @@ typedef struct _GstDashSinkStream
   gchar *representation_id;
   gchar *current_segment_location;
   gchar *mimetype;
-  gint bitrate;
+  gint bitrate_period_bytes;
+  GstClockTime bitrate_period_time;
   gchar *codec;
   gchar *content_type;
   GstClockTime current_running_time_start;
@@ -670,10 +671,15 @@ gst_dash_sink_generate_mpd_content (GstDashSink * sink,
        * */
       gst_mpd_client_set_adaptation_set_node (sink->mpd_client,
           sink->current_period_id, stream->adaptation_set_id, NULL);
+      // Compute bitrate from counters
+      guint64 bitrate = stream->bitrate_period_bytes * 8 /
+          GST_TIME_AS_SECONDS (stream->bitrate_period_time);
+      stream->bitrate_period_bytes = 0;
+      stream->bitrate_period_time = 0;
       /* Add or set representation node with stream ids */
       gst_mpd_client_set_representation_node (sink->mpd_client,
           sink->current_period_id, stream->adaptation_set_id,
-          stream->representation_id, "bandwidth", stream->bitrate, "mime-type",
+          stream->representation_id, "bandwidth", bitrate, "mime-type",
           stream->mimetype, "codecs", stream->codec, NULL);
       /* Set specific to stream type */
       if (stream->type == DASH_SINK_STREAM_TYPE_VIDEO) {
@@ -925,10 +931,10 @@ _dash_sink_buffers_probe (GstPad * pad, GstPadProbeInfo * probe_info,
   GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER (probe_info);
   GstDashSinkStream *stream = (GstDashSinkStream *) user_data;
 
-  if (GST_BUFFER_DURATION (buffer))
-    stream->bitrate =
-        gst_buffer_get_size (buffer) * GST_SECOND /
-        GST_BUFFER_DURATION (buffer);
+  if (GST_BUFFER_DURATION (buffer)) {
+    stream->bitrate_period_bytes += gst_buffer_get_size (buffer);
+    stream->bitrate_period_time += GST_BUFFER_DURATION (buffer);
+  }
   if (stream->first_pts == GST_CLOCK_TIME_NONE) {
     GstClockTime timestamp;
 
@@ -954,6 +960,8 @@ gst_dash_sink_request_new_pad (GstElement * element, GstPadTemplate * templ,
   const gchar *split_pad_name = pad_name;
 
   stream = g_new0 (GstDashSinkStream, 1);
+  stream->bitrate_period_bytes = 0;
+  stream->bitrate_period_time = 0;
   stream->last_duration = 0;
   stream->first_pts = GST_CLOCK_TIME_NONE;
   if (g_str_has_prefix (templ->name_template, "video")) {
