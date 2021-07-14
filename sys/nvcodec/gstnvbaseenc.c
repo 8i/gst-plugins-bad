@@ -1590,6 +1590,10 @@ gst_nv_base_enc_setup_rate_control (GstNvBaseEnc * nvenc,
     rc_params->targetQuality = (guint8) (scaled >> 8);
     rc_params->targetQualityLSB = (guint8) (scaled & 0xff);
   }
+
+  if (nvenc->emphasis_map) {
+    rc_params->qpMapMode = NV_ENC_QP_MAP_EMPHASIS;
+  }
 }
 
 static guint
@@ -2294,6 +2298,88 @@ _acquire_input_buffer (GstNvBaseEnc * nvenc, GstNvEncFrameState ** input)
   return GST_FLOW_OK;
 }
 
+// Iterate through ROI meta elements and construct the QP map for this frame.
+static int8_t *
+_get_qp_map (GstNvBaseEnc * nvenc, GstVideoCodecFrame * frame, int width,
+    int height, int *size)
+{
+  GstBuffer *input;
+  guint num_roi, i = 0;
+  gpointer state = NULL;
+  int8_t *output = NULL;
+  int map_size, mb_w, mb_h = 0;
+
+  input = frame->input_buffer;
+
+  // Figure out the macroblock width/height
+  mb_w = GST_ROUND_UP_16 (width) / 16;
+  mb_h = GST_ROUND_UP_16 (height) / 16;
+
+  // Allocate a per-macroblock byte array of QP deltas
+  map_size = sizeof (int8_t) * mb_w * mb_h;
+  output = (int8_t *) g_malloc0 (map_size);
+
+  if (output == NULL)
+    goto end;
+
+  *size = map_size;
+
+  num_roi =
+      gst_buffer_get_n_meta (input, GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE);
+  if (num_roi == 0)
+    goto end;
+
+  for (i = 0; i < num_roi; i++) {
+    GstVideoRegionOfInterestMeta *roi;
+    GstStructure *s;
+
+    roi = (GstVideoRegionOfInterestMeta *)
+        gst_buffer_iterate_meta_filtered (input, &state,
+        GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE);
+    if (!roi)
+      continue;
+
+    /* ignore roi if overflow */
+    if ((roi->x > G_MAXINT16) || (roi->y > G_MAXINT16)
+        || (roi->w > G_MAXUINT16) || (roi->h > G_MAXUINT16)) {
+      GST_DEBUG_OBJECT (nvenc, "Ignoring ROI... ROI overflow");
+      continue;
+    }
+
+    s = gst_video_region_of_interest_meta_get_param (roi, "roi/nvenc");
+
+    if (s) {
+      int value = 0;
+
+      if (gst_structure_get_int (s, "emphasis", &value)) {
+        int mb_roi_x, mb_roi_y, mb_roi_w, mb_roi_h, mb_idx = -1;
+
+        GST_LOG ("Input buffer ROI: type=%s id=%d (%d, %d) %dx%d, emphasis=%d",
+            g_quark_to_string (roi->roi_type), roi->id, roi->x, roi->y, roi->w,
+            roi->h, value);
+        // Find the raster-scan index of the macroblocks at the ROI origin;
+        mb_roi_x = roi->x / 16;
+        mb_roi_y = roi->y / 16;
+        mb_roi_h = GST_ROUND_UP_16 (roi->h) / 16;
+        mb_roi_w = GST_ROUND_UP_16 (roi->w) / 16;
+
+        // Iterate through macroblock ROI width/height
+        for (int w = 0; w < mb_roi_w; w++) {
+          for (int h = 0; h < mb_roi_h; h++) {
+            mb_idx = (mb_roi_y + h) * mb_w + (mb_roi_x + w);
+            // We'll end up with the highest requested emphasis
+            if (output[mb_idx] < value)
+              output[mb_idx] = value;
+          }
+        }
+      }
+    }
+  }
+
+end:
+  return output;
+}
+
 static GstFlowReturn
 _submit_input_buffer (GstNvBaseEnc * nvenc, GstVideoCodecFrame * frame,
     GstVideoFrame * vframe, GstNvEncFrameState * state, void *inputBufferPtr,
@@ -2314,7 +2400,9 @@ _submit_input_buffer (GstNvBaseEnc * nvenc, GstVideoCodecFrame * frame,
   pic_params.version = gst_nvenc_get_pic_params_version ();
   pic_params.inputBuffer = inputBufferPtr;
   pic_params.bufferFmt = bufferFormat;
-  /* pic_params.qpDeltaMap = populate me from frame metadata */
+  pic_params.qpDeltaMap =
+      _get_qp_map (nvenc, frame, GST_VIDEO_FRAME_WIDTH (vframe),
+      GST_VIDEO_FRAME_HEIGHT (vframe), &pic_params.qpDeltaMapSize);
 
   pic_params.inputWidth = GST_VIDEO_FRAME_WIDTH (vframe);
   pic_params.inputHeight = GST_VIDEO_FRAME_HEIGHT (vframe);
@@ -2351,6 +2439,8 @@ _submit_input_buffer (GstNvBaseEnc * nvenc, GstVideoCodecFrame * frame,
   }
 
   nv_ret = NvEncEncodePicture (nvenc->encoder, &pic_params);
+
+  g_free (pic_params.qpDeltaMap);
 
   gst_cuda_context_pop (NULL);
 
