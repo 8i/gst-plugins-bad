@@ -76,6 +76,7 @@ typedef struct {
   gboolean lookahead;
   gboolean temporal_aq;
   gint bframes;
+  gboolean emphasis_map;
 } GstNvEncDeviceCaps;
 
 typedef struct {
@@ -163,6 +164,7 @@ typedef struct {
   gboolean        temporal_aq;
   guint           bframes;
   gboolean        b_adapt;
+  gboolean        emphasis_map;
 } GstNvBaseEnc;
 
 typedef struct {

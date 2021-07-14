@@ -2314,6 +2314,7 @@ _submit_input_buffer (GstNvBaseEnc * nvenc, GstVideoCodecFrame * frame,
   pic_params.version = gst_nvenc_get_pic_params_version ();
   pic_params.inputBuffer = inputBufferPtr;
   pic_params.bufferFmt = bufferFormat;
+  /* pic_params.qpDeltaMap = populate me from frame metadata */
 
   pic_params.inputWidth = GST_VIDEO_FRAME_WIDTH (vframe);
   pic_params.inputHeight = GST_VIDEO_FRAME_HEIGHT (vframe);
