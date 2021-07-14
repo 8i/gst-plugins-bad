@@ -49,6 +49,7 @@ enum
   PROP_TEMPORAL_AQ,
   PROP_BFRAMES,
   PROP_B_ADAPT,
+  PROP_EMPHASIS_MAP,
 };
 
 #define DEFAULT_AUD TRUE
@@ -58,6 +59,7 @@ enum
 #define DEFAULT_TEMPORAL_AQ FALSE
 #define DEFAULT_BFRAMES 0
 #define DEFAULT_B_ADAPT FALSE
+#define DEFAULT_EMPHASIS_MAP FALSE
 
 /* captured using RTX 2080 */
 #define DOCUMENTATION_SINK_CAPS_COMM \
@@ -228,6 +230,22 @@ gst_nv_h264_enc_class_init (GstNvH264EncClass * klass, gpointer data)
             GST_PARAM_CONDITIONALLY_AVAILABLE | G_PARAM_STATIC_STRINGS));
   }
 
+  if (device_caps->emphasis_map) {
+    /**
+     * GstNvH264Enc:emphasis-map:
+     *
+     * Enable emphasis map using per-frame ROI metadata
+     *
+     * Since: 1.18
+     */
+    g_object_class_install_property (gobject_class, PROP_EMPHASIS_MAP,
+        g_param_spec_boolean ("emphasis-map", "Emphasis Map",
+            "Enable emphasis map",
+            DEFAULT_EMPHASIS_MAP,
+            G_PARAM_READWRITE | GST_PARAM_MUTABLE_READY |
+            GST_PARAM_CONDITIONALLY_AVAILABLE | G_PARAM_STATIC_STRINGS));
+  }
+
   if (cdata->is_default)
     long_name = g_strdup ("NVENC H.264 Video Encoder");
   else
@@ -278,6 +296,7 @@ gst_nv_h264_enc_init (GstNvH264Enc * nvenc)
   baseenc->temporal_aq = DEFAULT_TEMPORAL_AQ;
   baseenc->bframes = DEFAULT_BFRAMES;
   baseenc->b_adapt = DEFAULT_B_ADAPT;
+  baseenc->emphasis_map = DEFAULT_EMPHASIS_MAP;
 }
 
 static void
@@ -619,6 +638,13 @@ gst_nv_h264_enc_set_property (GObject * object, guint prop_id,
         nvenc->b_adapt = g_value_get_boolean (value);
       }
       break;
+    case PROP_EMPHASIS_MAP:
+      if (!device_caps->emphasis_map) {
+        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      } else {
+        nvenc->emphasis_map = g_value_get_boolean (value);
+      }
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -681,6 +707,13 @@ gst_nv_h264_enc_get_property (GObject * object, guint prop_id, GValue * value,
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       } else {
         g_value_set_boolean (value, nvenc->b_adapt);
+      }
+      break;
+    case PROP_EMPHASIS_MAP:
+      if (!device_caps->emphasis_map) {
+        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      } else {
+        g_value_set_boolean (value, nvenc->emphasis_map);
       }
       break;
     default:
