@@ -759,6 +759,12 @@ gst_nv_enc_register (GstPlugin * plugin, GUID codec_id, const gchar * codec,
       device_caps.bframes = 0;
     }
 
+    caps_param.capsToQuery = NV_ENC_CAPS_SUPPORT_EMPHASIS_LEVEL_MAP;
+    if (NvEncGetEncodeCaps (enc, codec_id, &caps_param,
+            &device_caps.emphasis_map) != NV_ENC_SUCCESS) {
+      device_caps.emphasis_map = 0;
+    }
+
     DEBUG_DEVICE_CAPS (device_index,
         codec, "weighted prediction", device_caps.weighted_prediction);
 
